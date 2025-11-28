@@ -78,19 +78,19 @@ async savePdfContent(courseId: string, pdfText: string) {
 
     console.log('✅ Update successful!');
     console.log('📊 Updated course:', {
-      id: updatedCourse._id,
-      title: updatedCourse.title,
-      pdfProcessed: updatedCourse.pdfProcessed,
-      pdfContentLength: updatedCourse.pdfContent?.length || 0,
-      pdfProcessedAt: updatedCourse.pdfProcessedAt,
+      id: (updatedCourse as any)._id,
+      title: (updatedCourse as any).title,
+      pdfProcessed: (updatedCourse as any).pdfProcessed,
+      pdfContentLength: ((updatedCourse as any).pdfContent?.length) || 0,
+      pdfProcessedAt: (updatedCourse as any).pdfProcessedAt,
     });
 
     // Verify the update by reading it back
     console.log('🔍 Verifying update...');
     const verification = await this.courseModel.findById(courseId).select('pdfContent pdfProcessed');
     console.log('✅ Verification:', {
-      pdfProcessed: verification?.pdfProcessed,
-      pdfContentLength: verification?.pdfContent?.length || 0,
+      pdfProcessed: (verification as any)?.pdfProcessed,
+      pdfContentLength: ((verification as any)?.pdfContent?.length) || 0,
     });
     console.log('=================================');
     console.log('');
@@ -117,7 +117,11 @@ async savePdfContent(courseId: string, pdfText: string) {
    */
   async getPdfContent(courseId: string): Promise<string | null> {
     try {
-      const course = await this.courseModel.findById(courseId).select('pdfContent');
+      // Use .lean() to return a plain JS object and narrow its type so TypeScript can access pdfContent
+      const course = await this.courseModel
+        .findById(courseId)
+        .select('pdfContent')
+        .lean() as unknown as { pdfContent?: string } | null;
       return course?.pdfContent || null;
     } catch (error) {
       throw new Error(`Failed to get PDF content: ${error.message}`);
@@ -174,7 +178,7 @@ async savePdfContent(courseId: string, pdfText: string) {
     try {
       const course = await this.courseModel
         .findById(courseId)
-        .select('title pdfProcessed pdfProcessedAt pdfFileName');
+        .select('title pdfProcessed pdfProcessedAt pdfFileName') as any;
 
       if (!course) {
         return { status: 404, error: 'Course not found' };
