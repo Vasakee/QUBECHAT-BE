@@ -22,6 +22,19 @@ export class Course {
 
   @Prop({ default: Date.now })
   date: Date;
+
+  // PDF-related fields — explicit defaults so DB always contains predictable values
+  @Prop({ type: String, default: '' })
+  pdfContent: string;
+
+  @Prop({ type: Boolean, default: false })
+  pdfProcessed: boolean;
+
+  @Prop({ type: Date, default: null })
+  pdfProcessedAt?: Date | null;
+
+  @Prop({ type: String, default: null })
+  pdfFileName?: string | null;
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);

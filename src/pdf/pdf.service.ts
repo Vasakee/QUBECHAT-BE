@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as fs from 'fs';
 import { CourseDocument } from '../schemas/course.schema';
+import { basename } from 'path';
 
 // Import pdf-parse correctly
 const pdfParse = require('pdf-parse');
@@ -39,20 +40,22 @@ async savePdfContent(courseId: string, pdfText: string) {
     console.log('🆔 CourseId:', courseId);
     console.log('📏 Text length:', pdfText.length);
     console.log('📝 Text preview:', pdfText.substring(0, 100));
-    
+
     // Validate courseId format
     const mongoose = require('mongoose');
     if (!mongoose.Types.ObjectId.isValid(courseId)) {
       console.error('❌ Invalid courseId format:', courseId);
-      console.log('=================================');
-      console.log('');
       return { status: 400, error: 'Invalid course ID format' };
     }
 
-    console.log('✅ Valid ObjectId format');
-    console.log('🔍 Updating course directly in database...');
+    // Check size (guard against huge text blobs)
+    const sizeInMB = Buffer.byteLength(pdfText, 'utf8') / (1024 * 1024);
+    console.log(`📊 PDF text size: ${sizeInMB.toFixed(2)} MB`);
+    if (sizeInMB > 50) { // adjust limit as needed
+      return { status: 413, error: 'PDF content too large' };
+    }
 
-    // Use findByIdAndUpdate with $set operator
+    // Use atomic update to reliably write fields
     const updatedCourse = await this.courseModel.findByIdAndUpdate(
       courseId,
       {
@@ -61,43 +64,45 @@ async savePdfContent(courseId: string, pdfText: string) {
           pdfProcessed: true,
           pdfProcessedAt: new Date(),
           pdfFileName: 'document.pdf',
-        }
+        },
       },
-      { 
-        new: true, // Return the updated document
-        runValidators: false, // Skip validation for optional fields
-      }
-    );
+      { new: true },
+    ).exec();
 
     if (!updatedCourse) {
-      console.error('❌ Course not found');
-      console.log('=================================');
-      console.log('');
+      console.error('❌ Course not found for update:', courseId);
       return { status: 404, error: 'Course not found' };
     }
 
     console.log('✅ Update successful!');
     console.log('📊 Updated course:', {
-      id: (updatedCourse as any)._id,
-      title: (updatedCourse as any).title,
-      pdfProcessed: (updatedCourse as any).pdfProcessed,
-      pdfContentLength: ((updatedCourse as any).pdfContent?.length) || 0,
-      pdfProcessedAt: (updatedCourse as any).pdfProcessedAt,
+      id: updatedCourse._id,
+      title: updatedCourse.title,
+      pdfProcessed: updatedCourse.pdfProcessed,
+      pdfContentLength: updatedCourse.pdfContent?.length || 0,
+      pdfProcessedAt: updatedCourse.pdfProcessedAt,
     });
 
-    // Verify the update by reading it back
-    console.log('🔍 Verifying update...');
-    const verification = await this.courseModel.findById(courseId).select('pdfContent pdfProcessed');
-    console.log('✅ Verification:', {
-      pdfProcessed: (verification as any)?.pdfProcessed,
-      pdfContentLength: ((verification as any)?.pdfContent?.length) || 0,
+    // Verify the update by reading it back as a plain object
+    const verification = await this.courseModel
+      .findById(courseId)
+      .select('pdfContent pdfProcessed pdfProcessedAt pdfFileName')
+      .lean()
+      .exec();
+
+    console.log('🔍 Verification:', {
+      pdfProcessed: verification?.pdfProcessed,
+      pdfContentLength: verification?.pdfContent?.length || 0,
+      pdfProcessedAt: verification?.pdfProcessedAt,
+      pdfFileName: verification?.pdfFileName,
     });
     console.log('=================================');
     console.log('');
 
     return {
+      status: 200,
       message: 'PDF content saved successfully',
-      courseId,
+      courseId: updatedCourse._id.toString(),
       contentLength: pdfText.length,
     };
   } catch (error) {
@@ -108,7 +113,7 @@ async savePdfContent(courseId: string, pdfText: string) {
     console.error('Stack:', error.stack);
     console.error('==========================');
     console.error('');
-    
+
     return { status: 500, error: error.message };
   }
 }
@@ -117,7 +122,6 @@ async savePdfContent(courseId: string, pdfText: string) {
    */
   async getPdfContent(courseId: string): Promise<string | null> {
     try {
-      // Use .lean() to return a plain JS object and narrow its type so TypeScript can access pdfContent
       const course = await this.courseModel
         .findById(courseId)
         .select('pdfContent')
@@ -178,7 +182,8 @@ async savePdfContent(courseId: string, pdfText: string) {
     try {
       const course = await this.courseModel
         .findById(courseId)
-        .select('title pdfProcessed pdfProcessedAt pdfFileName') as any;
+        .select('title pdfProcessed pdfProcessedAt pdfFileName')
+        .lean() as unknown as { _id: any; title?: string; pdfProcessed?: boolean; pdfProcessedAt?: Date; pdfFileName?: string } | null;
 
       if (!course) {
         return { status: 404, error: 'Course not found' };
@@ -189,7 +194,7 @@ async savePdfContent(courseId: string, pdfText: string) {
         course: {
           id: course._id,
           title: course.title,
-          pdfProcessed: course.pdfProcessed || false,
+          pdfProcessed: !!course.pdfProcessed,
           pdfProcessedAt: course.pdfProcessedAt,
           pdfFileName: course.pdfFileName,
         },

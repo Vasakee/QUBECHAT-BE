@@ -1,4 +1,3 @@
-// src/schemas/course.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
@@ -6,11 +5,11 @@ export type CourseDocument = Course & Document;
 
 @Schema({ timestamps: true })
 export class Course {
-  @Prop({ type: String, required: true, unique: true })
+  @Prop({ required: true, unique: true })
   title: string;
 
-  @Prop({ type: String })
-  description?: string;
+  @Prop()
+  description: string;
 
   @Prop({ type: Types.ObjectId, ref: 'users', required: true })
   creator: Types.ObjectId;
@@ -19,17 +18,16 @@ export class Course {
   chats: Types.ObjectId[];
 
   @Prop({ type: [{ path: String, name: String }] })
-  files: { path?: string; name?: string }[];
+  files: any[];
 
   @Prop({ default: Date.now })
   date: Date;
 
-  // PDF fields
-  @Prop({ type: String })
-  pdfContent?: string;
+  @Prop({ type: String, default: null })
+  pdfContent: string;
 
   @Prop({ type: Boolean, default: false })
-  pdfProcessed?: boolean;
+  pdfProcessed: boolean;
 
   @Prop({ type: Date })
   pdfProcessedAt?: Date;
@@ -39,3 +37,9 @@ export class Course {
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);
+
+CourseSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
+  const mongoose = require('mongoose');
+  await mongoose.model('chats').deleteMany({ _id: { $in: this.chats } });
+  next();
+});
