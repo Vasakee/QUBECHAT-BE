@@ -17,7 +17,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiConsumes, ApiBody
 
 @ApiTags('Upload')
 @ApiBearerAuth('jwt')
-@Controller('api/upload')
+@Controller('api/v1/upload')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
@@ -48,19 +48,18 @@ export class UploadController {
     @Req() req: any,
   ) {
     console.log('');
-    console.log('🚀 ====== UPLOAD CONTROLLER ======');
-    console.log('📁 Files received:', files?.length || 0);
-    console.log('📋 Full body:', JSON.stringify(body, null, 2));
-    console.log('📋 req.body:', JSON.stringify(req.body, null, 2));
-    console.log('🆔 body.courseId:', body?.courseId);
-    console.log('🆔 req.body.courseId:', req.body?.courseId);
-    console.log('================================');
+    console.log('UPLOAD CONTROLLER');
+    console.log('Files received:', files?.length || 0);
+    console.log('Full body:', JSON.stringify(body, null, 2));
+    console.log('req.body:', JSON.stringify(req.body, null, 2));
+    console.log('body.courseId:', body?.courseId);
+    console.log('req.body.courseId:', req.body?.courseId);
     console.log('');
 
     // Try multiple ways to get courseId
     const courseId = body?.courseId || req.body?.courseId || body?.courseid || req.body?.courseid;
     
-    console.log('🎯 Final courseId being passed:', courseId);
+    console.log('Final courseId being passed:', courseId);
     
     return await this.uploadService.uploadDoc(files, courseId);
   }

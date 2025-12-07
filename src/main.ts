@@ -5,7 +5,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as fs from 'fs'; // ← Add this
+import * as fs from 'fs';
 
 async function bootstrap() {
   dotenv.config();
@@ -18,7 +18,6 @@ async function bootstrap() {
   
   const app = await NestFactory.create(AppModule);
   
-  // Remove duplicate ValidationPipe (you have it twice)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -56,7 +55,7 @@ async function bootstrap() {
   SwaggerModule.setup('/docs', app, document, {
     customSiteTitle: 'SAGE API Documentation',
     swaggerOptions: {
-      persistAuthorization: true, // ← Change to true for better dev experience
+      persistAuthorization: true,
     },
   });
   
@@ -64,8 +63,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  logger.log(`🚀 SAGE Backend running on http://localhost:${port}`);
-  logger.log(`📚 API Documentation: http://localhost:${port}/docs`);
+  logger.log(`SAGE Backend running on http://localhost:${port}`);
+  logger.log(`API Documentation: http://localhost:${port}/docs`);
 }
 
 bootstrap();

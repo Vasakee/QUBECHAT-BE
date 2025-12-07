@@ -23,7 +23,6 @@ export class Course {
   @Prop({ default: Date.now })
   date: Date;
 
-  // PDF-related fields — explicit defaults so DB always contains predictable values
   @Prop({ type: String, default: '' })
   pdfContent: string;
 
@@ -40,7 +39,6 @@ export class Course {
 export const CourseSchema = SchemaFactory.createForClass(Course);
 
 CourseSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
-  // delete chats linked
   const mongoose = require('mongoose');
   await mongoose.model('chats').deleteMany({ _id: { $in: this.chats } });
   next();

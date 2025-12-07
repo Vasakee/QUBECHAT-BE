@@ -10,7 +10,7 @@ import { multerOptions } from '../upload/multer.options';
 
 @ApiTags('PDF')
 @ApiBearerAuth('jwt')
-@Controller('api/pdf')
+@Controller('api/v1/pdf')
 export class PdfController {
   constructor(private readonly pdfService: PdfService) {}
 
@@ -32,7 +32,6 @@ export class PdfController {
     return await this.pdfService.processPdfForCourse(courseId, body.filePath);
   }
 
-  // Accept file upload directly from Swagger / client and process PDF
   @Post('process/:courseId/upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', multerOptions))

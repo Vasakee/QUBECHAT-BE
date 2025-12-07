@@ -17,20 +17,14 @@ export class CourseService {
     return { message: 'success', courses };
   }
 
-  /**
-   * CREATE COURSE – now 100% safe for PDF fields
-   */
   async create(body: any, authenticatedUserId: string) {
     const newCourse = new this.courseModel({
       title: body.title,
       description: body.description || '',
-      creator: authenticatedUserId,           // ← NEVER trust body.creator (security fix!)
+      creator: authenticatedUserId,          
       chats: [],
       files: body.files || [],
       date: Date.now(),
-
-      // Explicitly initialize PDF-related fields so they exist from day one
-      // This guarantees savePdfContent() will work even if schema is missing them
       pdfContent: null,
       pdfProcessed: false,
       pdfProcessedAt: null,

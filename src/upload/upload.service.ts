@@ -9,12 +9,11 @@ export class UploadService {
   async uploadDoc(files: Array<Express.Multer.File>, courseId?: string) {
     try {
       console.log('');
-      console.log('📦 ====== UPLOAD SERVICE ======');
-      console.log('📥 Files:', files?.length || 0);
-      console.log('🆔 CourseId:', courseId);
-      console.log('📝 CourseId type:', typeof courseId);
-      console.log('✅ CourseId valid:', !!courseId && courseId !== 'undefined' && courseId.trim() !== '');
-      console.log('==============================');
+      console.log('UPLOAD SERVICE');
+      console.log('Files:', files?.length || 0);
+      console.log('CourseId:', courseId);
+      console.log('CourseId type:', typeof courseId);
+      console.log('CourseId valid:', !!courseId && courseId !== 'undefined' && courseId.trim() !== '');
       console.log('');
 
       if (!files || files.length === 0) {
@@ -30,11 +29,11 @@ export class UploadService {
         size: f.size,
       }));
 
-      console.log('📄 Uploaded files:', uploadedFiles.map(f => f.originalname));
+      console.log('Uploaded files:', uploadedFiles.map(f => f.originalname));
 
       // If courseId is provided, process PDF
       if (courseId && courseId !== 'undefined' && courseId.trim() !== '') {
-        console.log('✅ Valid courseId detected, searching for PDF...');
+        console.log('Valid courseId detected, searching for PDF...');
         
         const pdfFile = files.find(
           (f) =>
@@ -42,7 +41,7 @@ export class UploadService {
             f.mimetype === 'application/pdf',
         );
 
-        console.log('🔍 PDF file search result:', {
+        console.log('PDF file search result:', {
           found: !!pdfFile,
           filename: pdfFile?.originalname,
           mimetype: pdfFile?.mimetype,
@@ -52,11 +51,10 @@ export class UploadService {
         if (pdfFile) {
           try {
             console.log('');
-            console.log('🔄 ====== PROCESSING PDF ======');
-            console.log(`📝 File: ${pdfFile.originalname}`);
-            console.log(`🆔 Course: ${courseId}`);
-            console.log(`📍 Path: ${pdfFile.path}`);
-            console.log('==============================');
+            console.log('PROCESSING PDF');
+            console.log('File: ' + pdfFile.originalname);
+            console.log('Course: ' + courseId);
+            console.log('Path: ' + pdfFile.path);
             console.log('');
 
             const pdfResult = await this.pdfService.processPdfForCourse(
@@ -65,13 +63,12 @@ export class UploadService {
             );
 
             console.log('');
-            console.log('📤 ====== PDF RESULT ======');
+            console.log('PDF RESULT');
             console.log(JSON.stringify(pdfResult, null, 2));
-            console.log('==========================');
             console.log('');
 
             if ('status' in pdfResult && pdfResult.status && pdfResult.status !== 200) {
-              console.error('❌ PDF processing returned error status');
+              console.error('PDF processing returned error status');
               return {
                 message: 'File uploaded but PDF processing failed',
                 files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
@@ -79,7 +76,7 @@ export class UploadService {
               };
             }
 
-            console.log('✅ PDF processing successful!');
+            console.log('PDF processing successful!');
             return {
               message: 'File uploaded and PDF processed successfully',
               files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
@@ -87,10 +84,9 @@ export class UploadService {
             };
           } catch (error) {
             console.error('');
-            console.error('❌ ====== PDF ERROR ======');
+            console.error('PDF ERROR');
             console.error('Error:', error);
             console.error('Stack:', error.stack);
-            console.error('==========================');
             console.error('');
             
             return {
@@ -100,7 +96,7 @@ export class UploadService {
             };
           }
         } else {
-          console.log('⚠️ No PDF file found in uploaded files');
+          console.log('No PDF file found in uploaded files');
           return {
             message: 'File uploaded (no PDF found for processing)',
             files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
@@ -108,7 +104,7 @@ export class UploadService {
           };
         }
       } else {
-        console.log('ℹ️ No valid courseId provided - skipping PDF processing');
+        console.log('No valid courseId provided - skipping PDF processing');
       }
 
       // No courseId, just return uploaded files
@@ -119,10 +115,9 @@ export class UploadService {
       };
     } catch (error) {
       console.error('');
-      console.error('❌ ====== UPLOAD SERVICE ERROR ======');
+      console.error('UPLOAD SERVICE ERROR');
       console.error('Error:', error);
       console.error('Stack:', error.stack);
-      console.error('====================================');
       console.error('');
       
       return { status: 500, error: error.message };

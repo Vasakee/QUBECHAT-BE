@@ -36,26 +36,23 @@ export class PdfService {
 async savePdfContent(courseId: string, pdfText: string) {
   try {
     console.log('');
-    console.log('💾 ====== SAVE PDF CONTENT ======');
-    console.log('🆔 CourseId:', courseId);
-    console.log('📏 Text length:', pdfText.length);
-    console.log('📝 Text preview:', pdfText.substring(0, 100));
+    console.log('SAVE PDF CONTENT');
+    console.log('CourseId:', courseId);
+    console.log('Text length:', pdfText.length);
+    console.log('Text preview:', pdfText.substring(0, 100));
 
     // Validate courseId format
     const mongoose = require('mongoose');
     if (!mongoose.Types.ObjectId.isValid(courseId)) {
-      console.error('❌ Invalid courseId format:', courseId);
+      console.error('Invalid courseId format:', courseId);
       return { status: 400, error: 'Invalid course ID format' };
     }
 
-    // Check size (guard against huge text blobs)
     const sizeInMB = Buffer.byteLength(pdfText, 'utf8') / (1024 * 1024);
-    console.log(`📊 PDF text size: ${sizeInMB.toFixed(2)} MB`);
-    if (sizeInMB > 50) { // adjust limit as needed
+    console.log(`PDF text size: ${sizeInMB.toFixed(2)} MB`);
+    if (sizeInMB > 50) {
       return { status: 413, error: 'PDF content too large' };
     }
-
-    // Use atomic update to reliably write fields
     const updatedCourse = await this.courseModel.findByIdAndUpdate(
       courseId,
       {
@@ -70,12 +67,12 @@ async savePdfContent(courseId: string, pdfText: string) {
     ).exec();
 
     if (!updatedCourse) {
-      console.error('❌ Course not found for update:', courseId);
+      console.error('Course not found for update:', courseId);
       return { status: 404, error: 'Course not found' };
     }
 
-    console.log('✅ Update successful!');
-    console.log('📊 Updated course:', {
+    console.log('Update successful!');
+    console.log('Updated course:', {
       id: updatedCourse._id,
       title: updatedCourse.title,
       pdfProcessed: updatedCourse.pdfProcessed,
@@ -83,14 +80,13 @@ async savePdfContent(courseId: string, pdfText: string) {
       pdfProcessedAt: updatedCourse.pdfProcessedAt,
     });
 
-    // Verify the update by reading it back as a plain object
     const verification = await this.courseModel
       .findById(courseId)
       .select('pdfContent pdfProcessed pdfProcessedAt pdfFileName')
       .lean()
       .exec();
 
-    console.log('🔍 Verification:', {
+    console.log('Verification:', {
       pdfProcessed: verification?.pdfProcessed,
       pdfContentLength: verification?.pdfContent?.length || 0,
       pdfProcessedAt: verification?.pdfProcessedAt,
@@ -107,7 +103,7 @@ async savePdfContent(courseId: string, pdfText: string) {
     };
   } catch (error) {
     console.error('');
-    console.error('❌ ====== SAVE ERROR ======');
+    console.error('SAVE ERROR');
     console.error('Error:', error);
     console.error('Message:', error.message);
     console.error('Stack:', error.stack);

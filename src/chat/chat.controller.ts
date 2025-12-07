@@ -10,7 +10,7 @@ import { SendMessagesWithCourseDto } from './dto/send-messages-with-course.dto';
 
 @ApiTags('Chat')
 @ApiBearerAuth('jwt')
-@Controller('api/chat')
+@Controller('api/v1/chat')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
@@ -59,14 +59,12 @@ export class ChatController {
     @Res() res: Response,
   ) {
     try {
-  const stream = await this.chatService.sendStream(body.messages, body.courseId);
+      const stream = await this.chatService.sendStream(body.messages, body.courseId);
 
-      // Set up SSE headers
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      // Stream the response
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content || '';
         if (content) {

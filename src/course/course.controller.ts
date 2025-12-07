@@ -25,7 +25,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 
 @ApiTags('Course')
 @ApiBearerAuth('jwt')
-@Controller('api/course')
+@Controller('api/v1/course')
 export class CourseController {
   constructor(private readonly courseService: CourseService) {}
 
@@ -50,7 +50,6 @@ export class CourseController {
   @ApiCreatedResponse({ description: 'Course created successfully' })
   @ApiResponse({ status: 400, description: 'Title already exists' })
   async create(@Body() body: CreateCourseDto, @Req() req: any) {
-    // We now pass the real user ID from JWT — never trust body.creator
     return await this.courseService.create(body, req.user.id);
   }
 

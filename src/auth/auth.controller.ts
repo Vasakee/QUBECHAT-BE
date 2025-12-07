@@ -7,7 +7,7 @@ import { LoginDto } from './dto/login.dto';
 
 @ApiTags('Auth')
 @ApiBearerAuth('jwt')
-@Controller('api/auth')
+@Controller('api/v1/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
