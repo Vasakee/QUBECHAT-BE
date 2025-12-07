@@ -9,9 +9,8 @@ import { GroqModule } from './common/groq.module';
 import { UserSchema } from './schemas/user.schema';
 import { CourseSchema } from './schemas/course.schema';
 import { ChatSchema } from './schemas/chat.schema';
-//import { CourseSchema } from './schemas/course.schema';
-//import { ChatSchema } from './schemas/chat.schema';
 import { PdfModule } from './pdf/pdf.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -29,5 +28,6 @@ import { PdfModule } from './pdf/pdf.module';
     GroqModule,
     PdfModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule { }
