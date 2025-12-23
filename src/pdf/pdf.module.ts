@@ -4,10 +4,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PdfController } from './pdf.controller';
 import { PdfService } from './pdf.service';
 import { CourseSchema } from '../schemas/course.schema';
+import { DoclingModule } from '../docling/docling.module';
 //import { CourseSchema } from '../courses/schemas/course.schema';
 
 @Module({
   imports: [
+    DoclingModule,
     MongooseModule.forFeature([
       { name: 'courses', schema: CourseSchema },
     ]),

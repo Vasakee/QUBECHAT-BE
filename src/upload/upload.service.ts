@@ -31,80 +31,53 @@ export class UploadService {
 
       console.log('Uploaded files:', uploadedFiles.map(f => f.originalname));
 
-      // If courseId is provided, process PDF
+      // If courseId is provided, attempt to process the first file with a parser
       if (courseId && courseId !== 'undefined' && courseId.trim() !== '') {
-        console.log('Valid courseId detected, searching for PDF...');
-        
-        const pdfFile = files.find(
-          (f) =>
-            f.originalname?.toLowerCase().endsWith('.pdf') ||
-            f.mimetype === 'application/pdf',
-        );
+        console.log('Valid courseId detected, attempting file parsing...');
 
-        console.log('PDF file search result:', {
-          found: !!pdfFile,
-          filename: pdfFile?.originalname,
-          mimetype: pdfFile?.mimetype,
-          path: pdfFile?.path
-        });
+        const targetFile = files[0];
+        console.log('Selected file for parsing:', targetFile?.originalname, targetFile?.mimetype);
 
-        if (pdfFile) {
+        if (targetFile) {
           try {
-            console.log('');
-            console.log('PROCESSING PDF');
-            console.log('File: ' + pdfFile.originalname);
+            console.log('PROCESSING FILE');
+            console.log('File: ' + targetFile.originalname);
             console.log('Course: ' + courseId);
-            console.log('Path: ' + pdfFile.path);
-            console.log('');
+            console.log('Path: ' + targetFile.path);
 
-            const pdfResult = await this.pdfService.processPdfForCourse(
+            const parseResult = await this.pdfService.processFileForCourse(
               courseId,
-              pdfFile.path,
+              targetFile.path,
             );
 
-            console.log('');
-            console.log('PDF RESULT');
-            console.log(JSON.stringify(pdfResult, null, 2));
-            console.log('');
+            console.log('PARSE RESULT', JSON.stringify(parseResult, null, 2));
 
-            if ('status' in pdfResult && pdfResult.status && pdfResult.status !== 200) {
-              console.error('PDF processing returned error status');
+            if ('status' in parseResult && parseResult.status && parseResult.status !== 200) {
+              console.error('File processing returned error status');
               return {
-                message: 'File uploaded but PDF processing failed',
+                message: 'File uploaded but processing failed',
                 files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
-                pdfProcessing: pdfResult,
+                processing: parseResult,
               };
             }
 
-            console.log('PDF processing successful!');
+            console.log('File processing successful!');
             return {
-              message: 'File uploaded and PDF processed successfully',
+              message: 'File uploaded and processed successfully',
               files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
-              pdfProcessing: pdfResult,
+              processing: parseResult,
             };
           } catch (error) {
-            console.error('');
-            console.error('PDF ERROR');
-            console.error('Error:', error);
-            console.error('Stack:', error.stack);
-            console.error('');
-            
+            console.error('FILE PROCESSING ERROR', error);
             return {
-              message: 'File uploaded but PDF processing failed',
+              message: 'File uploaded but processing failed',
               files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
               error: error.message,
             };
           }
-        } else {
-          console.log('No PDF file found in uploaded files');
-          return {
-            message: 'File uploaded (no PDF found for processing)',
-            files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
-            note: 'To process PDF, upload a .pdf file with courseId',
-          };
         }
       } else {
-        console.log('No valid courseId provided - skipping PDF processing');
+        console.log('No valid courseId provided - skipping file processing');
       }
 
       // No courseId, just return uploaded files

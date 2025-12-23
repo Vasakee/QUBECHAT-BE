@@ -20,6 +20,8 @@ export class User {
   @Prop({ required: true })
   avatar: string;
 
+  @Prop({ required: false, index: true })
+  googleId?: string;
   @Prop({ default: Date.now })
   date: Date;
 }

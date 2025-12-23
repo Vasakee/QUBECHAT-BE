@@ -29,7 +29,7 @@ export class PdfController {
     @Body() body: ProcessPdfDto,
     @Req() req: any,
   ) {
-    return await this.pdfService.processPdfForCourse(courseId, body.filePath);
+    return await this.pdfService.processFileForCourse(courseId, body.filePath);
   }
 
   @Post('process/:courseId/upload')
@@ -55,7 +55,7 @@ export class PdfController {
       return { status: 400, error: 'No file uploaded' };
     }
 
-    return await this.pdfService.processPdfForCourse(courseId, file.path);
+    return await this.pdfService.processFileForCourse(courseId, file.path);
   }
 
   @Get('content/:courseId')

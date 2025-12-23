@@ -1,62 +1,176 @@
-import { Injectable } from '@nestjs/common';
+import { 
+  Injectable, 
+  BadRequestException, 
+  NotFoundException,
+  InternalServerErrorException 
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { UserDocument } from '../schemas/user.schema';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 import { getServerAddress } from '../utils/util';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+
+interface AuthResponse {
+  reply: string;
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    avatar: string;
+    email: string;
+  };
+}
+
+interface GoogleProfile {
+  id: string;
+  displayName?: string;
+  emails?: Array<{ value: string; verified?: boolean }>;
+  photos?: Array<{ value: string }>;
+}
 
 @Injectable()
 export class AuthService {
-  constructor(@InjectModel('users') private userModel: Model<UserDocument>) {}
+  private readonly jwtSecret: string;
 
-  async register(body: any) {
-    // simple validation left to original validators
-    const avatar = (body.req && body.req.protocol)
-      ? getServerAddress(body.req) + '/images/user_placeholder.png'
-      : (body.avatar || '/images/user_placeholder.png');
+  constructor(@InjectModel('users') private userModel: Model<UserDocument>) {
+    // Validate JWT secret at startup
+    if (!process.env.JWTKey) {
+      throw new Error('JWTKey must be defined in environment variables');
+    }
+    this.jwtSecret = process.env.JWTKey;
+  }
+
+  async register(body: RegisterDto, req?: any): Promise<AuthResponse> {
+    const avatar = (req && req.protocol)
+      ? getServerAddress(req) + '/images/user_placeholder.png'
+      : '/images/user_placeholder.png';
 
     const newUser = new this.userModel({
       username: body.username,
       email: body.email,
       password: body.password,
       avatar,
-      date: Date.now(),
     });
 
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     newUser.password = await bcrypt.hash(newUser.password, salt);
 
     try {
       const user = await newUser.save();
-      const payload = { id: user.id, username: user.username, avatar: user.avatar, email: user.email };
-      const token = jwt.sign(payload, process.env.JWTKey || 'secret', { expiresIn: 604800 });
-      return { reply: 'Success', token: 'Bearer ' + token, user: payload };
+      const payload = { 
+        id: user.id, 
+        username: user.username, 
+        avatar: user.avatar, 
+        email: user.email 
+      };
+      const token = jwt.sign(payload, this.jwtSecret, { expiresIn: 604800 });
+      
+      return { 
+        reply: 'Success', 
+        token: 'Bearer ' + token, 
+        user: payload 
+      };
     } catch (error) {
       if (error.code === 11000) {
         if (error.keyPattern && error.keyPattern.email) {
-          return { status: 400, errors: { email: 'Email already exists' } };
+          throw new BadRequestException('Email already exists');
         }
         if (error.keyPattern && error.keyPattern.username) {
-          return { status: 400, errors: { username: 'Username already exists' } };
+          throw new BadRequestException('Username already exists');
         }
       }
-      return { status: 500, error: error.message };
+      throw new InternalServerErrorException('Failed to register user');
     }
   }
 
-  async login(body: any) {
+  async login(body: LoginDto): Promise<AuthResponse> {
     const { email, password } = body;
+    
     const user = await this.userModel.findOne({ email });
     if (!user) {
-      return { status: 404, errors: { email: 'Email not found' } };
+      throw new NotFoundException('Email not found');
     }
+
     const isMatch = await bcrypt.compare(password, user.password);
-    if (isMatch) {
-      const payload = { id: user.id, username: user.username, avatar: user.avatar, email: user.email };
-      const token = jwt.sign(payload, process.env.JWTKey || 'secret', { expiresIn: 604800 });
-      return { reply: 'Success', token: 'Bearer ' + token, user: payload };
+    if (!isMatch) {
+      throw new BadRequestException('Password not correct');
     }
-    return { status: 400, errors: { password: 'Password not correct' } };
+
+    const payload = { 
+      id: user.id, 
+      username: user.username, 
+      avatar: user.avatar, 
+      email: user.email 
+    };
+    const token = jwt.sign(payload, this.jwtSecret, { expiresIn: 604800 });
+    
+    return { 
+      reply: 'Success', 
+      token: 'Bearer ' + token, 
+      user: payload 
+    };
+  }
+
+  async findOrCreateGoogleUser(profile: GoogleProfile): Promise<AuthResponse> {
+    try {
+      const email = profile?.emails?.[0]?.value;
+      const googleId = profile?.id;
+      const displayName = profile?.displayName || email?.split('@')[0];
+      const avatar = profile?.photos?.[0]?.value || '/images/user_placeholder.png';
+
+      if (!email) {
+        throw new BadRequestException('Google profile did not include email');
+      }
+
+      // Try find by googleId first
+      let user = await this.userModel.findOne({ googleId });
+      
+      if (!user) {
+        // Try find by email
+        user = await this.userModel.findOne({ email });
+      }
+
+      if (user) {
+        // Ensure googleId is set for future logins
+        if (!user.googleId) {
+          user.googleId = googleId;
+          await user.save();
+        }
+      } else {
+        // Create a new user with strong random password (not used for Google auth)
+        const newUser = new this.userModel({
+          username: displayName,
+          email,
+          password: randomBytes(32).toString('hex'),
+          avatar,
+          googleId,
+        });
+        user = await newUser.save();
+      }
+
+      const payload = { 
+        id: user.id, 
+        username: user.username, 
+        avatar: user.avatar, 
+        email: user.email 
+      };
+      const token = jwt.sign(payload, this.jwtSecret, { expiresIn: 604800 });
+      
+      return { 
+        reply: 'Success', 
+        token: 'Bearer ' + token, 
+        user: payload 
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to authenticate with Google');
+    }
   }
 }

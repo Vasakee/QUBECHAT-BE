@@ -127,4 +127,25 @@ export class ChatService {
       return { status: 500, error: error.message };
     }
   }
+
+    /**
+     * Add message to chat (used by WebSocket gateway)
+     */
+    async addMessageToChat(chatId: string, message: any) {
+      try {
+        const chat = await this.chatModel.findByIdAndUpdate(
+          chatId,
+          { $push: { messages: message } },
+          { new: true },
+        );
+
+        if (!chat) {
+          return { status: 404, error: 'Chat not found' };
+        }
+
+        return { message: 'Message added successfully', chat };
+      } catch (error) {
+        return { status: 500, error: error.message };
+      }
+    }
 }

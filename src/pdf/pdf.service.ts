@@ -1,17 +1,32 @@
 // src/pdf/pdf.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as fs from 'fs';
 import { CourseDocument } from '../schemas/course.schema';
 import { basename } from 'path';
+import { DoclingService } from '../docling/docling.service';
 
-// Import pdf-parse correctly
+// Import pdf-parse as fallback
 const pdfParse = require('pdf-parse');
+
+// Try to require llama-parse if available
+let llamaParse: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  llamaParse = require('llama-parse');
+} catch (e) {
+  llamaParse = null;
+}
 
 @Injectable()
 export class PdfService {
-  constructor(@InjectModel('courses') private courseModel: Model<CourseDocument>) {}
+  private readonly logger = new Logger(PdfService.name);
+
+  constructor(
+    @InjectModel('courses') private courseModel: Model<CourseDocument>,
+    private doclingService: DoclingService,
+  ) {}
 
   /**
    * Extract text from PDF file using pdf-parse
@@ -29,6 +44,72 @@ export class PdfService {
     } catch (error) {
       console.error('PDF extraction error:', error);
       throw new Error(`Failed to extract text from PDF: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generic file parsing: use pdf-parse first, llama-parse only for complex docs (images/formulas)
+   */
+  async parseFileToText(filePath: string): Promise<string> {
+    try {
+      const ext = basename(filePath).split('.').pop()?.toLowerCase();
+
+      // Primary: if file is PDF, use pdf-parse (faster, more reliable for text-only)
+      if (ext === 'pdf') {
+        const dataBuffer = require('fs').readFileSync(filePath);
+        const data = await pdfParse(dataBuffer);
+        const extractedText = data.text;
+
+        // Heuristic: if very little text extracted relative to file size, document likely has many images/formulas
+        // In that case, try llama-parse for better OCR/formula handling
+        const fileSize = require('fs').statSync(filePath).size;
+        const textDensity = extractedText.length / Math.max(1, fileSize);
+        if (textDensity < 0.01 && llamaParse && typeof llamaParse.parse === 'function') {
+          console.log('Low text density detected; attempting llama-parse for better image/formula extraction');
+          try {
+            const res = await llamaParse.parse(filePath);
+            if (typeof res === 'string' && res.trim().length > 0) return res;
+            if (res && res.text && res.text.trim().length > 0) return res.text;
+          } catch (err) {
+            console.warn('llama-parse failed; using pdf-parse result:', err?.message || err);
+          }
+        }
+
+        return extractedText;
+      }
+
+      // Try docx/doc using mammoth if available
+      if (ext === 'docx' || ext === 'doc' || ext === 'docm') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const mammoth = require('mammoth');
+          const buffer = require('fs').readFileSync(filePath);
+          // mammoth expects an ArrayBuffer-like object
+          const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          if (result && result.value && result.value.trim().length > 0) return result.value;
+        } catch (err) {
+          console.warn('mammoth parse failed or not installed, falling back to text read:', err?.message || err);
+        }
+      }
+
+      // Last resort: try to read file as utf8 text but detect binary-like content
+      try {
+        const buf = require('fs').readFileSync(filePath);
+        // Heuristic: count non-printable bytes
+        const str = buf.toString('utf8');
+        const nonPrintable = (str.match(/[^\x09\x0A\x0D\x20-\x7E]/g) || []).length;
+        const ratio = nonPrintable / Math.max(1, str.length);
+        if (ratio > 0.1) {
+          throw new Error('File appears to be binary or unsupported format. Convert to PDF or DOCX and try again.');
+        }
+        return str;
+      } catch (err) {
+        throw new Error('Unsupported file type and no parser available: ' + (err?.message || err));
+      }
+    } catch (error) {
+      console.error('parseFileToText error:', error);
+      throw error;
     }
   }
 
@@ -130,24 +211,47 @@ async savePdfContent(courseId: string, pdfText: string) {
 
   /**
    * Process uploaded PDF and save to course
+   * Uses Docling service for conversion, falls back to pdf-parse if unavailable
    */
-  async processPdfForCourse(courseId: string, filePath: string) {
+  async processFileForCourse(courseId: string, filePath: string) {
     try {
       // Check if file exists
       if (!fs.existsSync(filePath)) {
         return { status: 404, error: 'PDF file not found' };
       }
 
-      console.log(`Processing PDF: ${filePath} for course: ${courseId}`);
+      this.logger.log(`Processing PDF: ${filePath} for course: ${courseId}`);
 
-      // Extract text from PDF
-      const pdfText = await this.extractTextFromPDF(filePath);
+      let pdfText: string;
+
+      // Try Docling service first for better structured output
+      try {
+        this.logger.log('Attempting to use Docling service for PDF conversion');
+        const isHealthy = await this.doclingService.healthCheck();
+        
+        if (isHealthy) {
+          pdfText = await this.doclingService.convertPdfToMarkdown(filePath);
+          this.logger.log(
+            `Docling conversion successful: ${pdfText.length} characters`,
+          );
+        } else {
+          this.logger.warn(
+            'Docling service unhealthy, falling back to pdf-parse',
+          );
+          pdfText = await this.parseFileToText(filePath);
+        }
+      } catch (doclingError) {
+        this.logger.warn(
+          `Docling conversion failed: ${(doclingError as Error).message}, falling back to pdf-parse`,
+        );
+        pdfText = await this.parseFileToText(filePath);
+      }
 
       if (!pdfText || pdfText.trim().length === 0) {
         return { status: 400, error: 'No text could be extracted from PDF' };
       }
 
-      console.log(`Extracted ${pdfText.length} characters from PDF`);
+      this.logger.log(`Extracted ${pdfText.length} characters from PDF`);
 
       // Save to course
       const result = await this.savePdfContent(courseId, pdfText);
@@ -166,8 +270,8 @@ async savePdfContent(courseId: string, pdfText: string) {
         preview: pdfText.substring(0, 200) + '...',
       };
     } catch (error) {
-      console.error('Error processing PDF:', error);
-      return { status: 500, error: error.message };
+      this.logger.error('Error processing PDF:', error);
+      return { status: 500, error: (error as Error).message };
     }
   }
 

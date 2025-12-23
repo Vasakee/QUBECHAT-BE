@@ -11,6 +11,8 @@ import { CourseSchema } from './schemas/course.schema';
 import { ChatSchema } from './schemas/chat.schema';
 import { PdfModule } from './pdf/pdf.module';
 import { AppController } from './app.controller';
+import { FlashcardModule } from './flashcard/flashcard.module';
+import { GroupChatSchema } from './schemas/groupchat.schema';
 
 @Module({
   imports: [
@@ -20,6 +22,7 @@ import { AppController } from './app.controller';
       { name: 'users', schema: UserSchema },
       { name: 'courses', schema: CourseSchema },
       { name: 'chats', schema: ChatSchema },
+      { name: 'groupchats', schema: GroupChatSchema },
     ]),
     AuthModule,
     ChatModule,
@@ -27,6 +30,7 @@ import { AppController } from './app.controller';
     UploadModule,
     GroqModule,
     PdfModule,
+    FlashcardModule,
   ],
   controllers: [AppController],
 })
