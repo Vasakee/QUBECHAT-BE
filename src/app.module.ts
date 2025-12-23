@@ -13,16 +13,21 @@ import { PdfModule } from './pdf/pdf.module';
 import { AppController } from './app.controller';
 import { FlashcardModule } from './flashcard/flashcard.module';
 import { GroupChatSchema } from './schemas/groupchat.schema';
+import { QuizSchema } from './schemas/quiz.schema';
+import { QuizModule } from './quiz/quiz.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    CacheModule,
     MongooseModule.forRoot(process.env.mongoURI || process.env.localURI || ''),
     MongooseModule.forFeature([
       { name: 'users', schema: UserSchema },
       { name: 'courses', schema: CourseSchema },
       { name: 'chats', schema: ChatSchema },
       { name: 'groupchats', schema: GroupChatSchema },
+      { name: 'quizzes', schema: QuizSchema },
     ]),
     AuthModule,
     ChatModule,
@@ -31,6 +36,7 @@ import { GroupChatSchema } from './schemas/groupchat.schema';
     GroqModule,
     PdfModule,
     FlashcardModule,
+    QuizModule,
   ],
   controllers: [AppController],
 })

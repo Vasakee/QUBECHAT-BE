@@ -50,6 +50,7 @@ JWTKey=your_jwt_secret
 GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.3-70b-versatile
 FRONTEND_URL=http://localhost:3000
+DOCLING_SERVICE_URL=http://localhost:5000
 ```
 
 3. Run the dev server
@@ -84,12 +85,20 @@ Chat
 - `POST /api/chat/send` — Send messages to the Groq model. Accepts `messages` array and optional `courseId` to include PDF context in the system prompt.
 - `POST /api/chat/send-stream` — Streaming variant for SSE clients.
 
+Docling microservice
+- Runs separately (FastAPI) and is already wired via `DOCLING_SERVICE_URL`.
+- Endpoints used by Nest:
+  - `POST /convert-pdf` (returns markdown + structured JSON)
+  - `POST /convert-docx` (returns markdown + simple JSON summary)
+  - Health at `/health`
+- Default local URL: `http://localhost:5000` (docker-compose includes `docling` service).
+
 ## How PDF text gets to the model (high level)
 
 1. Upload a PDF via `/api/upload/doc` (or `/api/pdf/process/:courseId/upload`).
-2. `UploadService` detects the PDF and calls `PdfService.processPdfForCourse(courseId, filePath)`.
-3. `PdfService.extractTextFromPDF()` extracts text (pdf-parse or pdfjs fallback) and `savePdfContent()` writes the text to the Course record (`course.pdfContent`, `pdfProcessed`, `pdfProcessedAt`).
-4. When a chat call includes a `courseId`, `ChatService` fetches `pdfContent` and passes it to `GroqService.chatWithPDF()` as a system message so the model can answer using the document as context.
+2. `UploadService` detects the PDF and calls `PdfService.processFileForCourse(courseId, filePath)`.
+3. `PdfService` asks Docling for markdown + JSON (figures/tables/math); if Docling is down, it falls back to legacy parsers. The markdown and JSON are stored on the Course (`pdfMarkdown`, `pdfJson`, `pdfPageCount`, `pdfCharCount`, flags).
+4. When a chat call includes a `courseId`, `ChatService` fetches `pdfMarkdown` (falls back to `pdfContent`) and passes it to `GroqService.chatWithPDF()` as a system message so the model can answer using the document as context.
 
 Note: the current implementation prepends the full (or truncated) document as a system message. For large documents you may want to chunk + retrieve relevant passages or add embeddings + a vector store for RAG (recommended for scale).
 

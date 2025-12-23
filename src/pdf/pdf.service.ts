@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import { CourseDocument } from '../schemas/course.schema';
 import { basename } from 'path';
 import { DoclingService } from '../docling/docling.service';
+import { CacheService } from '../cache/cache.service';
 
 // Import pdf-parse as fallback
 const pdfParse = require('pdf-parse');
@@ -26,6 +27,7 @@ export class PdfService {
   constructor(
     @InjectModel('courses') private courseModel: Model<CourseDocument>,
     private doclingService: DoclingService,
+    private cache: CacheService,
   ) {}
 
   /**
@@ -114,7 +116,17 @@ export class PdfService {
   }
 
 // src/pdf/pdf.service.ts
-async savePdfContent(courseId: string, pdfText: string) {
+async savePdfContent(
+  courseId: string,
+  pdfText: string,
+  options?: {
+    pdfMarkdown?: string;
+    pdfJson?: any;
+    fileName?: string;
+    pageCount?: number | null;
+    charCount?: number | null;
+  },
+) {
   try {
     console.log('');
     console.log('SAVE PDF CONTENT');
@@ -129,7 +141,8 @@ async savePdfContent(courseId: string, pdfText: string) {
       return { status: 400, error: 'Invalid course ID format' };
     }
 
-    const sizeInMB = Buffer.byteLength(pdfText, 'utf8') / (1024 * 1024);
+    const markdownContent = options?.pdfMarkdown ?? pdfText;
+    const sizeInMB = Buffer.byteLength(markdownContent, 'utf8') / (1024 * 1024);
     console.log(`PDF text size: ${sizeInMB.toFixed(2)} MB`);
     if (sizeInMB > 50) {
       return { status: 413, error: 'PDF content too large' };
@@ -138,10 +151,14 @@ async savePdfContent(courseId: string, pdfText: string) {
       courseId,
       {
         $set: {
-          pdfContent: pdfText,
+          pdfContent: markdownContent,
+          pdfMarkdown: markdownContent,
+          pdfJson: options?.pdfJson ?? null,
+          pdfPageCount: options?.pageCount ?? null,
+          pdfCharCount: options?.charCount ?? markdownContent.length,
           pdfProcessed: true,
           pdfProcessedAt: new Date(),
-          pdfFileName: 'document.pdf',
+          pdfFileName: options?.fileName || 'document.pdf',
         },
       },
       { new: true },
@@ -159,11 +176,12 @@ async savePdfContent(courseId: string, pdfText: string) {
       pdfProcessed: updatedCourse.pdfProcessed,
       pdfContentLength: updatedCourse.pdfContent?.length || 0,
       pdfProcessedAt: updatedCourse.pdfProcessedAt,
+      pdfPageCount: updatedCourse.pdfPageCount,
     });
 
     const verification = await this.courseModel
       .findById(courseId)
-      .select('pdfContent pdfProcessed pdfProcessedAt pdfFileName')
+      .select('pdfContent pdfProcessed pdfProcessedAt pdfFileName pdfPageCount pdfCharCount')
       .lean()
       .exec();
 
@@ -172,16 +190,26 @@ async savePdfContent(courseId: string, pdfText: string) {
       pdfContentLength: verification?.pdfContent?.length || 0,
       pdfProcessedAt: verification?.pdfProcessedAt,
       pdfFileName: verification?.pdfFileName,
+      pdfPageCount: verification?.pdfPageCount,
+      pdfCharCount: verification?.pdfCharCount,
     });
     console.log('=================================');
     console.log('');
 
-    return {
+    const payload = {
       status: 200,
       message: 'PDF content saved successfully',
       courseId: updatedCourse._id.toString(),
-      contentLength: pdfText.length,
+      contentLength: markdownContent.length,
     };
+
+    // cache for quick access
+    await this.cache.set(`course:pdf:${courseId}`, {
+      pdfMarkdown: markdownContent,
+      pdfJson: options?.pdfJson ?? null,
+    }, 600);
+
+    return payload;
   } catch (error) {
     console.error('');
     console.error('SAVE ERROR');
@@ -199,11 +227,18 @@ async savePdfContent(courseId: string, pdfText: string) {
    */
   async getPdfContent(courseId: string): Promise<string | null> {
     try {
+      const cached = await this.cache.get<{ pdfMarkdown?: string; pdfContent?: string }>(`course:pdf:${courseId}`);
+      if (cached?.pdfMarkdown) return cached.pdfMarkdown;
+
       const course = await this.courseModel
         .findById(courseId)
-        .select('pdfContent')
-        .lean() as unknown as { pdfContent?: string } | null;
-      return course?.pdfContent || null;
+        .select('pdfContent pdfMarkdown')
+        .lean() as unknown as { pdfContent?: string; pdfMarkdown?: string } | null;
+      const content = course?.pdfMarkdown || course?.pdfContent || null;
+      if (content) {
+        await this.cache.set(`course:pdf:${courseId}`, { pdfMarkdown: content }, 600);
+      }
+      return content;
     } catch (error) {
       throw new Error(`Failed to get PDF content: ${error.message}`);
     }
@@ -222,7 +257,12 @@ async savePdfContent(courseId: string, pdfText: string) {
 
       this.logger.log(`Processing PDF: ${filePath} for course: ${courseId}`);
 
-      let pdfText: string;
+      let pdfText = '';
+      let pdfJson: any = null;
+      let pageCount: number | null = null;
+      let charCount: number | null = null;
+      const fileName = basename(filePath);
+      const ext = fileName.split('.').pop()?.toLowerCase();
 
       // Try Docling service first for better structured output
       try {
@@ -230,7 +270,13 @@ async savePdfContent(courseId: string, pdfText: string) {
         const isHealthy = await this.doclingService.healthCheck();
         
         if (isHealthy) {
-          pdfText = await this.doclingService.convertPdfToMarkdown(filePath);
+          const endpoint =
+            ext === 'docx' ? '/convert-docx' : '/convert-pdf';
+          const rich = await this.doclingService.convertFileRich(filePath, endpoint as any);
+          pdfText = rich.markdown;
+          pdfJson = rich.json || null;
+          pageCount = rich.pageCount ?? null;
+          charCount = rich.charCount ?? null;
           this.logger.log(
             `Docling conversion successful: ${pdfText.length} characters`,
           );
@@ -254,7 +300,13 @@ async savePdfContent(courseId: string, pdfText: string) {
       this.logger.log(`Extracted ${pdfText.length} characters from PDF`);
 
       // Save to course
-      const result = await this.savePdfContent(courseId, pdfText);
+      const result = await this.savePdfContent(courseId, pdfText, {
+        pdfMarkdown: pdfText,
+        pdfJson,
+        fileName,
+        pageCount,
+        charCount,
+      });
 
       if (result.status && result.status !== 200) {
         return result;
@@ -267,6 +319,8 @@ async savePdfContent(courseId: string, pdfText: string) {
         message: 'PDF processed successfully',
         courseId,
         textLength: pdfText.length,
+        hasStructured: !!pdfJson,
+        pageCount,
         preview: pdfText.substring(0, 200) + '...',
       };
     } catch (error) {
@@ -282,8 +336,8 @@ async savePdfContent(courseId: string, pdfText: string) {
     try {
       const course = await this.courseModel
         .findById(courseId)
-        .select('title pdfProcessed pdfProcessedAt pdfFileName')
-        .lean() as unknown as { _id: any; title?: string; pdfProcessed?: boolean; pdfProcessedAt?: Date; pdfFileName?: string } | null;
+        .select('title pdfProcessed pdfProcessedAt pdfFileName pdfPageCount pdfCharCount')
+        .lean() as unknown as { _id: any; title?: string; pdfProcessed?: boolean; pdfProcessedAt?: Date; pdfFileName?: string; pdfPageCount?: number | null; pdfCharCount?: number | null } | null;
 
       if (!course) {
         return { status: 404, error: 'Course not found' };
@@ -297,6 +351,8 @@ async savePdfContent(courseId: string, pdfText: string) {
           pdfProcessed: !!course.pdfProcessed,
           pdfProcessedAt: course.pdfProcessedAt,
           pdfFileName: course.pdfFileName,
+          pdfPageCount: course.pdfPageCount,
+          pdfCharCount: course.pdfCharCount,
         },
       };
     } catch (error) {

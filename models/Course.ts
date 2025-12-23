@@ -23,8 +23,20 @@ export class Course {
   @Prop({ default: Date.now })
   date: Date;
 
-  @Prop({ type: String, default: null })
+  @Prop({ type: String, default: '' })
   pdfContent: string;
+
+  @Prop({ type: String, default: '' })
+  pdfMarkdown: string;
+
+  @Prop({ type: Object, default: null })
+  pdfJson?: Record<string, any> | null;
+
+  @Prop({ type: Number, default: null })
+  pdfPageCount?: number | null;
+
+  @Prop({ type: Number, default: null })
+  pdfCharCount?: number | null;
 
   @Prop({ type: Boolean, default: false })
   pdfProcessed: boolean;
