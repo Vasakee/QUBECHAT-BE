@@ -39,12 +39,68 @@ __decorate([
     (0, mongoose_1.Prop)({ default: Date.now }),
     __metadata("design:type", Date)
 ], Course.prototype, "date", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, default: '' }),
+    __metadata("design:type", String)
+], Course.prototype, "pdfContent", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, default: '' }),
+    __metadata("design:type", String)
+], Course.prototype, "pdfMarkdown", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Object, default: null }),
+    __metadata("design:type", Object)
+], Course.prototype, "pdfJson", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: null }),
+    __metadata("design:type", Number)
+], Course.prototype, "pdfPageCount", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: null }),
+    __metadata("design:type", Number)
+], Course.prototype, "pdfCharCount", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Boolean, default: false }),
+    __metadata("design:type", Boolean)
+], Course.prototype, "pdfProcessed", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date, default: null }),
+    __metadata("design:type", Date)
+], Course.prototype, "pdfProcessedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, default: null }),
+    __metadata("design:type", String)
+], Course.prototype, "pdfFileName", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: [
+            {
+                front: { type: String, required: true }, // question / front side
+                back: { type: String, required: true }, // answer / back side
+                tags: { type: [String], default: [] },
+                creator: { type: mongoose_2.Types.ObjectId, ref: 'users', required: true },
+                // Spaced-repetition fields (per-card defaults)
+                easeFactor: { type: Number, default: 2.5 }, // Anki default
+                interval: { type: Number, default: 0 }, // in days
+                dueDate: { type: Date, default: null },
+                // global review counters for the card
+                reviewCount: { type: Number, default: 0 },
+                lastReviewedAt: { type: Date },
+                // per-user stats map: { userId: { reviewCount, lastReviewedAt, interval, easeFactor, dueDate } }
+                stats: { type: Map, of: Object, default: {} },
+                createdAt: { type: Date, default: Date.now },
+            },
+        ],
+        default: [],
+    }),
+    __metadata("design:type", Array)
+], Course.prototype, "flashcards", void 0);
 exports.Course = Course = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Course);
 exports.CourseSchema = mongoose_1.SchemaFactory.createForClass(Course);
+// pre-delete cleanup as before
 exports.CourseSchema.pre('deleteOne', { document: true, query: false }, async function (next) {
-    // delete chats linked
     const mongoose = require('mongoose');
     await mongoose.model('chats').deleteMany({ _id: { $in: this.chats } });
     next();

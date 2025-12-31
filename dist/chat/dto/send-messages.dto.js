@@ -10,18 +10,30 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SendMessagesDto = void 0;
-const class_validator_1 = require("class-validator");
-const class_transformer_1 = require("class-transformer");
+// src/chat/dto/send-messages.dto.ts
 const swagger_1 = require("@nestjs/swagger");
-const message_dto_1 = require("./message.dto");
+const class_validator_1 = require("class-validator");
 class SendMessagesDto {
 }
 exports.SendMessagesDto = SendMessagesDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: [message_dto_1.MessageDto] }),
+    (0, swagger_1.ApiProperty)({
+        description: 'Array of chat messages',
+        example: [
+            { role: 'user', content: 'What is photosynthesis?' }
+        ]
+    }),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ValidateNested)({ each: true }),
-    (0, class_transformer_1.Type)(() => message_dto_1.MessageDto),
     __metadata("design:type", Array)
 ], SendMessagesDto.prototype, "messages", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Course ID to get PDF context (optional)',
+        required: false,
+        example: '507f1f77bcf86cd799439011'
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SendMessagesDto.prototype, "courseId", void 0);
 //# sourceMappingURL=send-messages.dto.js.map

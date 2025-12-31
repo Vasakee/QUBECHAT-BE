@@ -6,7 +6,8 @@ WORKDIR /app
 # Install build tools and dependencies
 COPY package*.json ./
 # Use legacy-peer-deps to avoid ERESOLVE peer dependency conflicts during Docker build
-RUN npm ci --legacy-peer-deps
+# Use `npm install` instead of `npm ci` so the image can build without an exact lockfile
+RUN npm install --legacy-peer-deps --no-audit --no-fund
 
 # Copy source and build
 COPY . .

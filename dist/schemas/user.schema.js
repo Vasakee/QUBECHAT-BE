@@ -36,6 +36,10 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "avatar", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ required: false, index: true }),
+    __metadata("design:type", String)
+], User.prototype, "googleId", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ default: Date.now }),
     __metadata("design:type", Date)
 ], User.prototype, "date", void 0);

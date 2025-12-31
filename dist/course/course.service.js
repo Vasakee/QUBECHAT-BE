@@ -1,4 +1,5 @@
 "use strict";
+// src/course/course.service.ts
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -21,43 +22,48 @@ let CourseService = class CourseService {
         this.courseModel = courseModel;
     }
     async list(userId) {
-        const courses = await this.courseModel.find({ creator: userId }).populate('chats').sort({ createdAt: -1 });
+        const courses = await this.courseModel
+            .find({ creator: userId })
+            .populate('chats')
+            .sort({ createdAt: -1 });
         return { message: 'success', courses };
     }
-    async create(body) {
+    async create(body, authenticatedUserId) {
         const newCourse = new this.courseModel({
             title: body.title,
-            description: body.description,
-            creator: body.creator,
+            description: body.description || '',
+            creator: authenticatedUserId,
+            chats: [],
             files: body.files || [],
             date: Date.now(),
+            pdfContent: null,
+            pdfMarkdown: '',
+            pdfJson: null,
+            pdfPageCount: null,
+            pdfCharCount: null,
+            pdfProcessed: false,
+            pdfProcessedAt: null,
+            pdfFileName: null,
         });
         try {
             const course = await newCourse.save();
             return { message: 'success', course };
         }
         catch (error) {
-            if (error.code === 11000) {
-                if (error.keyPattern && error.keyPattern.title) {
-                    return { status: 400, errors: { title: 'Course Title already exists' } };
-                }
+            if (error.code === 11000 && error.keyPattern?.title) {
+                return { status: 400, error: 'Course title already exists' };
             }
-            return { status: 500, error: error.message };
+            return { status: 500, error: error.message || 'Failed to create course' };
         }
     }
     async remove(id, userId) {
-        try {
-            const result = await this.courseModel.findOneAndDelete({ _id: id, creator: userId });
-            if (result) {
-                return { message: 'success', id };
-            }
-            else {
-                return { status: 404, error: 'Item not found' };
-            }
-        }
-        catch (error) {
-            return { status: 500, error: 'Error deleting item' };
-        }
+        const result = await this.courseModel.findOneAndDelete({
+            _id: id,
+            creator: userId,
+        });
+        return result
+            ? { message: 'success', id }
+            : { status: 404, error: 'Course not found' };
     }
 };
 exports.CourseService = CourseService;

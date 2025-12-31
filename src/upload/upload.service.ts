@@ -1,12 +1,13 @@
 // src/upload/upload.service.ts
 import { Injectable } from '@nestjs/common';
 import { PdfService } from '../pdf/pdf.service';
+import { IAppResponse } from '../interfaces/app-response.interface';
 
 @Injectable()
 export class UploadService {
   constructor(private pdfService: PdfService) {}
 
-  async uploadDoc(files: Array<Express.Multer.File>, courseId?: string) {
+  async uploadDoc(files: Array<Express.Multer.File>, courseId?: string): Promise<IAppResponse<any>> {
     try {
       console.log('');
       console.log('UPLOAD SERVICE');
@@ -17,7 +18,7 @@ export class UploadService {
       console.log('');
 
       if (!files || files.length === 0) {
-        return { status: 400, error: 'No files uploaded' };
+        return { success: false, message: 'No files uploaded', data: null };
       }
 
       // Map uploaded files with metadata
@@ -55,24 +56,33 @@ export class UploadService {
             if ('status' in parseResult && parseResult.status && parseResult.status !== 200) {
               console.error('File processing returned error status');
               return {
+                success: false,
                 message: 'File uploaded but processing failed',
-                files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
-                processing: parseResult,
+                data: { 
+                  files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
+                  processing: parseResult,
+                }
               };
             }
 
             console.log('File processing successful!');
             return {
+              success: true,
               message: 'File uploaded and processed successfully',
-              files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
-              processing: parseResult,
+              data: { 
+                files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
+                processing: parseResult,
+              }
             };
           } catch (error) {
             console.error('FILE PROCESSING ERROR', error);
             return {
+              success: false,
               message: 'File uploaded but processing failed',
-              files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
-              error: error.message,
+              data: { 
+                files: uploadedFiles.map((f) => ({ path: f.path, name: f.originalname })),
+                error: error.message,
+              }
             };
           }
         }
@@ -82,9 +92,12 @@ export class UploadService {
 
       // No courseId, just return uploaded files
       return {
+        success: true,
         message: 'File uploaded successfully',
-        files: uploadedFiles.map((f) => f.path),
-        note: 'To process PDF for a course, include courseId in the request',
+        data: { 
+          files: uploadedFiles.map((f) => f.path),
+          note: 'To process PDF for a course, include courseId in the request',
+        }
       };
     } catch (error) {
       console.error('');
@@ -93,7 +106,7 @@ export class UploadService {
       console.error('Stack:', error.stack);
       console.error('');
       
-      return { status: 500, error: error.message };
+      return { success: false, message: 'Upload failed', data: { error: error.message } };
     }
   }
 }

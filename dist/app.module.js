@@ -18,11 +18,13 @@ const groq_module_1 = require("./common/groq.module");
 const user_schema_1 = require("./schemas/user.schema");
 const course_schema_1 = require("./schemas/course.schema");
 const chat_schema_1 = require("./schemas/chat.schema");
-//import { CourseSchema } from './schemas/course.schema';
-//import { ChatSchema } from './schemas/chat.schema';
-const pdf_service_1 = require("./pdf/pdf.service");
-const pdf_controller_1 = require("./pdf/pdf.controller");
 const pdf_module_1 = require("./pdf/pdf.module");
+const app_controller_1 = require("./app.controller");
+const flashcard_module_1 = require("./flashcard/flashcard.module");
+const groupchat_schema_1 = require("./schemas/groupchat.schema");
+const quiz_schema_1 = require("./schemas/quiz.schema");
+const quiz_module_1 = require("./quiz/quiz.module");
+const cache_module_1 = require("./cache/cache.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -30,11 +32,14 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
+            cache_module_1.CacheModule,
             mongoose_1.MongooseModule.forRoot(process.env.mongoURI || process.env.localURI || ''),
             mongoose_1.MongooseModule.forFeature([
                 { name: 'users', schema: user_schema_1.UserSchema },
                 { name: 'courses', schema: course_schema_1.CourseSchema },
                 { name: 'chats', schema: chat_schema_1.ChatSchema },
+                { name: 'groupchats', schema: groupchat_schema_1.GroupChatSchema },
+                { name: 'quizzes', schema: quiz_schema_1.QuizSchema },
             ]),
             auth_module_1.AuthModule,
             chat_module_1.ChatModule,
@@ -42,9 +47,10 @@ exports.AppModule = AppModule = __decorate([
             upload_module_1.UploadModule,
             groq_module_1.GroqModule,
             pdf_module_1.PdfModule,
+            flashcard_module_1.FlashcardModule,
+            quiz_module_1.QuizModule,
         ],
-        providers: [pdf_service_1.PdfService],
-        controllers: [pdf_controller_1.PdfController],
+        controllers: [app_controller_1.AppController],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

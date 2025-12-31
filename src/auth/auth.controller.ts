@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Response } from 'express';
+import { IAppResponse } from '../interfaces/app-response.interface';
 
 @ApiTags('Auth')
 @Controller('api/v1/auth')
@@ -17,8 +18,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Test authentication' })
   @ApiResponse({ status: 200, description: 'Authentication working' })
-  test() {
-    return { msg: 'Auth Works!' };
+  test(): IAppResponse<{ message: string }> {
+    return { success: true, message: 'Auth works!', data: { message: 'Auth Works!' } };
   }
 
   @Post('register')
@@ -58,16 +59,16 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Returns JWT token and user info' })
   async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
     const result = req.user as any;
-    const token = result?.token || '';
-    const user = result?.user || {};
+    const token = result?.data?.token || '';
+    const user = result?.data?.user || {};
     
     // Check if request is from browser or API client
     if (req.query.redirect === 'false' || req.headers['accept']?.includes('application/json')) {
       // Return JSON for API clients
       return res.json({
-        reply: 'Success',
-        token,
-        user,
+        success: true,
+        message: 'Google authentication successful',
+        data: { token, user },
       });
     }
     

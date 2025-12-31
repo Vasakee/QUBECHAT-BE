@@ -13,23 +13,20 @@ import { randomBytes } from 'crypto';
 import { getServerAddress } from '../utils/util';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { IAppResponse } from '../interfaces/app-response.interface';
 
-interface AuthResponse {
-  reply: string;
-  token: string;
-  user: {
-    id: string;
-    username: string;
-    avatar: string;
-    email: string;
-  };
+interface AuthUser {
+  id: string;
+  username: string;
+  avatar: string;
+  email: string;
 }
 
 interface GoogleProfile {
   id: string;
   displayName?: string;
-  emails?: Array<{ value: string; verified?: boolean }>;
-  photos?: Array<{ value: string }>;
+  emails?: { value: string }[];
+  photos?: { value: string }[];
 }
 
 @Injectable()
@@ -37,14 +34,13 @@ export class AuthService {
   private readonly jwtSecret: string;
 
   constructor(@InjectModel('users') private userModel: Model<UserDocument>) {
-    // Validate JWT secret at startup
     if (!process.env.JWTKey) {
       throw new Error('JWTKey must be defined in environment variables');
     }
     this.jwtSecret = process.env.JWTKey;
   }
 
-  async register(body: RegisterDto, req?: any): Promise<AuthResponse> {
+  async register(body: RegisterDto, req?: any): Promise<IAppResponse<{ token: string; user: AuthUser }>> {
     const avatar = (req && req.protocol)
       ? getServerAddress(req) + '/images/user_placeholder.png'
       : '/images/user_placeholder.png';
@@ -56,7 +52,6 @@ export class AuthService {
       avatar,
     });
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     newUser.password = await bcrypt.hash(newUser.password, salt);
 
@@ -71,9 +66,12 @@ export class AuthService {
       const token = jwt.sign(payload, this.jwtSecret, { expiresIn: 604800 });
       
       return { 
-        reply: 'Success', 
-        token: 'Bearer ' + token, 
-        user: payload 
+        success: true,
+        message: 'Registration successful',
+        data: { 
+          token: 'Bearer ' + token, 
+          user: payload 
+        }
       };
     } catch (error) {
       if (error.code === 11000) {
@@ -88,7 +86,7 @@ export class AuthService {
     }
   }
 
-  async login(body: LoginDto): Promise<AuthResponse> {
+  async login(body: LoginDto): Promise<IAppResponse<{ token: string; user: AuthUser }>> {
     const { email, password } = body;
     
     const user = await this.userModel.findOne({ email });
@@ -110,13 +108,16 @@ export class AuthService {
     const token = jwt.sign(payload, this.jwtSecret, { expiresIn: 604800 });
     
     return { 
-      reply: 'Success', 
-      token: 'Bearer ' + token, 
-      user: payload 
+      success: true,
+      message: 'Login successful',
+      data: { 
+        token: 'Bearer ' + token, 
+        user: payload 
+      }
     };
   }
 
-  async findOrCreateGoogleUser(profile: GoogleProfile): Promise<AuthResponse> {
+  async findOrCreateGoogleUser(profile: GoogleProfile): Promise<IAppResponse<{ token: string; user: AuthUser }>> {
     try {
       const email = profile?.emails?.[0]?.value;
       const googleId = profile?.id;
@@ -162,9 +163,12 @@ export class AuthService {
       const token = jwt.sign(payload, this.jwtSecret, { expiresIn: 604800 });
       
       return { 
-        reply: 'Success', 
-        token: 'Bearer ' + token, 
-        user: payload 
+        success: true,
+        message: 'Google authentication successful',
+        data: { 
+          token: 'Bearer ' + token, 
+          user: payload 
+        }
       };
     } catch (error) {
       if (error instanceof BadRequestException) {

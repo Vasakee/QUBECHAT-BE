@@ -18,6 +18,10 @@ const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const pdf_service_1 = require("./pdf.service");
 const swagger_1 = require("@nestjs/swagger");
+const process_pdf_dto_1 = require("./dto/process-pdf.dto");
+const save_pdf_content_dto_1 = require("./dto/save-pdf-content.dto");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_options_1 = require("../upload/multer.options");
 let PdfController = class PdfController {
     constructor(pdfService) {
         this.pdfService = pdfService;
@@ -26,7 +30,13 @@ let PdfController = class PdfController {
         return { msg: 'PDF Service Works!' };
     }
     async processPdf(courseId, body, req) {
-        return await this.pdfService.processPdfForCourse(courseId, body.filePath);
+        return await this.pdfService.processFileForCourse(courseId, body.filePath);
+    }
+    async processPdfUpload(courseId, file, req) {
+        if (!file) {
+            return { status: 400, error: 'No file uploaded' };
+        }
+        return await this.pdfService.processFileForCourse(courseId, file.path);
     }
     async getContent(courseId, req) {
         try {
@@ -79,9 +89,31 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:paramtypes", [String, process_pdf_dto_1.ProcessPdfDto, Object]),
     __metadata("design:returntype", Promise)
 ], PdfController.prototype, "processPdf", null);
+__decorate([
+    (0, common_1.Post)('process/:courseId/upload'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', multer_options_1.multerOptions)),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                file: { type: 'string', format: 'binary' },
+            },
+        },
+    }),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload and process PDF for a course' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'PDF uploaded and processed successfully' }),
+    __param(0, (0, common_1.Param)('courseId')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], PdfController.prototype, "processPdfUpload", null);
 __decorate([
     (0, common_1.Get)('content/:courseId'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
@@ -101,7 +133,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [process_pdf_dto_1.ProcessPdfDto, Object]),
     __metadata("design:returntype", Promise)
 ], PdfController.prototype, "extractText", null);
 __decorate([
@@ -112,13 +144,13 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [save_pdf_content_dto_1.SavePdfContentDto, Object]),
     __metadata("design:returntype", Promise)
 ], PdfController.prototype, "saveContent", null);
 exports.PdfController = PdfController = __decorate([
     (0, swagger_1.ApiTags)('PDF'),
     (0, swagger_1.ApiBearerAuth)('jwt'),
-    (0, common_1.Controller)('api/pdf'),
+    (0, common_1.Controller)('api/v1/pdf'),
     __metadata("design:paramtypes", [pdf_service_1.PdfService])
 ], PdfController);
 //# sourceMappingURL=pdf.controller.js.map

@@ -33,52 +33,75 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+// src/main.ts
 require("reflect-metadata");
 const core_1 = require("@nestjs/core");
-//import { AppModule } from './app.module';
 const common_1 = require("@nestjs/common");
+const app_response_interceptor_1 = require("./common/interceptors/app-response.interceptor");
 const dotenv = __importStar(require("dotenv"));
 const app_module_1 = require("./app.module");
 const swagger_1 = require("@nestjs/swagger");
+const fs = __importStar(require("fs"));
 async function bootstrap() {
     dotenv.config();
     const logger = new common_1.Logger('Bootstrap');
+    if (!fs.existsSync('./uploads')) {
+        fs.mkdirSync('./uploads');
+        logger.log('Created uploads directory');
+    }
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
-    app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true, transform: true }));
-    app.enableCors({
-        origin: process.env.FRONTEND_URL || '*',
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-        credentials: true,
-    });
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
         transform: true,
         forbidNonWhitelisted: true,
     }));
+    app.enableCors({
+        origin: (origin, callback) => {
+            const allowedOrigins = [
+                process.env.FRONTEND_URL || 'http://localhost:3000',
+                'http://localhost:3000',
+                'http://localhost:4000',
+                'http://127.0.0.1:3000',
+                'http://127.0.0.1:4000',
+            ];
+            // Allow requests without origin (like Postman or curl)
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            }
+            else {
+                callback(new Error('Not allowed by CORS'));
+            }
+        },
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        credentials: true,
+        allowedHeaders: 'Content-Type,Authorization,X-Requested-With',
+    });
     const config = new swagger_1.DocumentBuilder()
-        .setTitle('EdTech API')
-        .setDescription('EdTech API server')
+        .setTitle('Studygai EdTech API')
+        .setDescription('AI-Powered Study Assistant API with PDF processing and chat capabilities')
         .setVersion('1.0')
-        //.setContact('Your Name', 'https://yourwebsite.com', 'your.email@example.com')
         .addBearerAuth({
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'jwt',
         description: 'Enter JWT token',
-        //in: 'header',
     }, 'jwt')
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('/docs', app, document, {
-        customSiteTitle: 'Edtech API Documentation',
+        customSiteTitle: 'SAGE API Documentation',
         swaggerOptions: {
-            persistAuthorization: false,
+            persistAuthorization: true,
         },
     });
-    logger.log('Swagger UI available at /api');
-    await app.listen(process.env.PORT || 4000);
-    console.log(`Nest app listening on ${process.env.PORT || 4000}`);
+    logger.log('Swagger UI available at /docs');
+    // Register global response interceptor to enforce IAppResponse shape
+    app.useGlobalInterceptors(new app_response_interceptor_1.AppResponseInterceptor());
+    const port = process.env.PORT || 4000;
+    await app.listen(port);
+    logger.log(`SAGE Backend running on http://localhost:${port}`);
+    logger.log(`API Documentation: http://localhost:${port}/docs`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
+const passport_1 = require("@nestjs/passport");
 const jwt_auth_guard_1 = require("./jwt-auth.guard");
 const auth_service_1 = require("./auth.service");
 const swagger_1 = require("@nestjs/swagger");
@@ -26,17 +27,43 @@ let AuthController = class AuthController {
     test() {
         return { msg: 'Auth Works!' };
     }
-    async register(body) {
-        return await this.authService.register(body);
+    async register(body, req) {
+        return this.authService.register(body, req);
     }
     async login(body) {
-        return await this.authService.login(body);
+        return this.authService.login(body);
+    }
+    async googleAuth() {
+        // Passport handles the redirect to Google
+    }
+    async googleAuthOptions() {
+        return {};
+    }
+    async googleAuthRedirect(req, res) {
+        const result = req.user;
+        const token = result?.token || '';
+        const user = result?.user || {};
+        // Check if request is from browser or API client
+        if (req.query.redirect === 'false' || req.headers['accept']?.includes('application/json')) {
+            // Return JSON for API clients
+            return res.json({
+                reply: 'Success',
+                token,
+                user,
+            });
+        }
+        // Redirect to frontend with token in hash for browser-based flow
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        return res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`);
     }
 };
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Get)('test'),
+    (0, swagger_1.ApiBearerAuth)('jwt'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Test authentication' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Authentication working' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
@@ -44,25 +71,55 @@ __decorate([
 __decorate([
     (0, common_1.Post)('register'),
     (0, swagger_1.ApiOperation)({ summary: 'Register a new user' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'User registered' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User registered successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - validation failed' }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [register_dto_1.RegisterDto]),
+    __metadata("design:paramtypes", [register_dto_1.RegisterDto, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "register", null);
 __decorate([
     (0, common_1.Post)('login'),
     (0, swagger_1.ApiOperation)({ summary: 'Login and receive a JWT' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'User logged in' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User logged in successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid credentials' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [login_dto_1.LoginDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Get)('google'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('google')),
+    (0, swagger_1.ApiOperation)({ summary: 'Initiate Google OAuth login flow' }),
+    (0, swagger_1.ApiResponse)({ status: 302, description: 'Redirects to Google login' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "googleAuth", null);
+__decorate([
+    (0, common_1.Options)('google'),
+    (0, swagger_1.ApiOperation)({ summary: 'CORS preflight for Google auth' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "googleAuthOptions", null);
+__decorate([
+    (0, common_1.Get)('google/redirect'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('google')),
+    (0, swagger_1.ApiOperation)({ summary: 'Google OAuth callback' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Returns JWT token and user info' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "googleAuthRedirect", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
-    (0, swagger_1.ApiBearerAuth)('jwt'),
-    (0, common_1.Controller)('api/auth'),
+    (0, common_1.Controller)('api/v1/auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

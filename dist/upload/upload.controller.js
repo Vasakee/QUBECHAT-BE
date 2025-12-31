@@ -13,7 +13,10 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UploadController = void 0;
+// src/upload/upload.controller.ts
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_options_1 = require("./multer.options");
 const upload_service_1 = require("./upload.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const swagger_1 = require("@nestjs/swagger");
@@ -21,17 +24,29 @@ let UploadController = class UploadController {
     constructor(uploadService) {
         this.uploadService = uploadService;
     }
-    async doc(req) {
-        return await this.uploadService.uploadDoc(req);
+    async doc(files, body, req) {
+        console.log('');
+        console.log('UPLOAD CONTROLLER');
+        console.log('Files received:', files?.length || 0);
+        console.log('Full body:', JSON.stringify(body, null, 2));
+        console.log('req.body:', JSON.stringify(req.body, null, 2));
+        console.log('body.courseId:', body?.courseId);
+        console.log('req.body.courseId:', req.body?.courseId);
+        console.log('');
+        // Try multiple ways to get courseId
+        const courseId = body?.courseId || req.body?.courseId || body?.courseid || req.body?.courseid;
+        console.log('Final courseId being passed:', courseId);
+        return await this.uploadService.uploadDoc(files, courseId);
     }
     test() {
-        return { msg: 'Auth Works!' };
+        return { msg: 'Upload Works!' };
     }
 };
 exports.UploadController = UploadController;
 __decorate([
     (0, common_1.Post)('doc'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('files', 10, multer_options_1.multerOptions)),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiBody)({
         schema: {
@@ -41,14 +56,20 @@ __decorate([
                     type: 'array',
                     items: { type: 'string', format: 'binary' },
                 },
+                courseId: {
+                    type: 'string',
+                    example: '673c5e8f9a1b2c3d4e5f6789',
+                },
             },
         },
     }),
-    (0, swagger_1.ApiOperation)({ summary: 'Upload document(s)' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload document(s) and optionally process PDF' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Files uploaded' }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, common_1.UploadedFiles)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Array, Object, Object]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "doc", null);
 __decorate([
@@ -61,7 +82,7 @@ __decorate([
 exports.UploadController = UploadController = __decorate([
     (0, swagger_1.ApiTags)('Upload'),
     (0, swagger_1.ApiBearerAuth)('jwt'),
-    (0, common_1.Controller)('api/upload'),
+    (0, common_1.Controller)('api/v1/upload'),
     __metadata("design:paramtypes", [upload_service_1.UploadService])
 ], UploadController);
 //# sourceMappingURL=upload.controller.js.map

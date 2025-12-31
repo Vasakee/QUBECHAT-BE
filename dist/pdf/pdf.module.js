@@ -13,6 +13,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const pdf_controller_1 = require("./pdf.controller");
 const pdf_service_1 = require("./pdf.service");
 const course_schema_1 = require("../schemas/course.schema");
+const docling_module_1 = require("../docling/docling.module");
 //import { CourseSchema } from '../courses/schemas/course.schema';
 let PdfModule = class PdfModule {
 };
@@ -20,6 +21,7 @@ exports.PdfModule = PdfModule;
 exports.PdfModule = PdfModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            docling_module_1.DoclingModule,
             mongoose_1.MongooseModule.forFeature([
                 { name: 'courses', schema: course_schema_1.CourseSchema },
             ]),

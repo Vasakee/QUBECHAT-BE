@@ -16,18 +16,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatService = void 0;
+// src/chat/chat.service.ts
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const groq_service_1 = require("../common/groq.service");
+const pdf_service_1 = require("../pdf/pdf.service");
 const mongoose_3 = __importDefault(require("mongoose"));
 let ChatService = class ChatService {
-    constructor(chatModel, groq) {
+    constructor(chatModel, courseModel, // typed course model
+    groq, pdfService) {
         this.chatModel = chatModel;
+        this.courseModel = courseModel;
         this.groq = groq;
+        this.pdfService = pdfService;
     }
     async list(courseID, userID) {
-        const chats = await this.chatModel.find({ course: courseID, creator: userID }).sort({ createdAt: -1 });
+        const chats = await this.chatModel
+            .find({ course: courseID, creator: userID })
+            .sort({ createdAt: -1 });
         return { message: 'success', chats };
     }
     async create(body) {
@@ -41,7 +48,6 @@ let ChatService = class ChatService {
                 messages: body.messages || [],
             });
             const savedChat = await newChat.save({ session });
-            // do not update course here for brevity
             await session.commitTransaction();
             session.endSession();
             return { message: 'success', chat: savedChat };
@@ -55,13 +61,49 @@ let ChatService = class ChatService {
             return { status: 500, error: error.message };
         }
     }
-    async send(messages) {
+    /**
+     * Send messages with optional PDF context
+     */
+    async send(messages, courseId) {
         try {
+            // If courseId provided, check for PDF content
+            if (courseId) {
+                const pdfContent = await this.pdfService.getPdfContent(courseId);
+                if (pdfContent && pdfContent.trim().length > 0) {
+                    // Use PDF-aware chat
+                    const data = await this.groq.chatWithPDF(pdfContent, messages);
+                    return data;
+                }
+                else {
+                    // No PDF content found, inform user
+                    console.log(`No PDF content found for course ${courseId}, using regular chat`);
+                }
+            }
+            // Fallback to regular chat without PDF context
             const data = await this.groq.getGroqChatCompletion(messages);
             return data;
         }
         catch (error) {
+            console.error('Chat error:', error);
             return { status: 400, error: error.message };
+        }
+    }
+    /**
+     * Send messages with streaming response
+     */
+    async sendStream(messages, courseId) {
+        try {
+            if (courseId) {
+                const pdfContent = await this.pdfService.getPdfContent(courseId);
+                if (pdfContent && pdfContent.trim().length > 0) {
+                    return await this.groq.chatWithPDFStream(pdfContent, messages);
+                }
+            }
+            return await this.groq.getGroqChatCompletionStream(messages);
+        }
+        catch (error) {
+            console.error('Chat stream error:', error);
+            throw error;
         }
     }
     async remove(id, userId) {
@@ -78,11 +120,47 @@ let ChatService = class ChatService {
             return { status: 500, error: 'Error deleting item' };
         }
     }
+    /**
+     * Get chat history with course info
+     */
+    async getChatWithCourse(chatId, userId) {
+        try {
+            const chat = await this.chatModel
+                .findOne({ _id: chatId, creator: userId })
+                .populate('course', 'title pdfProcessed');
+            if (!chat) {
+                return { status: 404, error: 'Chat not found' };
+            }
+            return { message: 'success', chat };
+        }
+        catch (error) {
+            return { status: 500, error: error.message };
+        }
+    }
+    /**
+     * Add message to chat (used by WebSocket gateway)
+     */
+    async addMessageToChat(chatId, message) {
+        try {
+            const chat = await this.chatModel.findByIdAndUpdate(chatId, { $push: { messages: message } }, { new: true });
+            if (!chat) {
+                return { status: 404, error: 'Chat not found' };
+            }
+            return { message: 'Message added successfully', chat };
+        }
+        catch (error) {
+            return { status: 500, error: error.message };
+        }
+    }
 };
 exports.ChatService = ChatService;
 exports.ChatService = ChatService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)('chats')),
-    __metadata("design:paramtypes", [mongoose_2.Model, groq_service_1.GroqService])
+    __param(1, (0, mongoose_1.InjectModel)('courses')),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
+        groq_service_1.GroqService,
+        pdf_service_1.PdfService])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map

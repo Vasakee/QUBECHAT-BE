@@ -3,10 +3,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install system dependencies including curl for health checks
+# Install system dependencies: curl (health check), poppler (pdf2image), tesseract-ocr (pytesseract)
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
+    poppler-utils \
+    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
