@@ -13,9 +13,6 @@ export class GroqService {
     this.modelName = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
   }
 
-  /**
-   * Standard chat completion without PDF context
-   */
   async getGroqChatCompletion(messages: any[]) {
     try {
       return await this.groq.chat.completions.create({
@@ -37,9 +34,6 @@ export class GroqService {
     }
   }
 
-  /**
-   * Chat completion WITH PDF context for study chatbot
-   */
   async chatWithPDF(pdfContent: string, messages: any[]) {
     try {
       // Keep PDF context small to avoid hitting Groq token limits.
@@ -125,9 +119,6 @@ Instructions:
     }
   }
 
-  /**
-   * Streaming chat completion (for real-time responses)
-   */
   async getGroqChatCompletionStream(messages: any[]) {
     try {
       return await this.groq.chat.completions.create({
@@ -148,9 +139,6 @@ Instructions:
     }
   }
 
-  /**
-   * Streaming chat WITH PDF context
-   */
   async chatWithPDFStream(pdfContent: string, messages: any[]) {
     try {
       const maxPdfChars = 400000;
@@ -192,9 +180,6 @@ Instructions:
     }
   }
 
-  /**
-   * Generate flashcards from PDF content using Groq AI
-   */
   async generateFlashcardsFromPDF(pdfContent: string, courseTitle?: string): Promise<any> {
     try {
       const maxPdfChars = 400000;
@@ -306,9 +291,6 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown, no code blo
     }
   }
 
-  /**
-   * Test connection to Groq API
-   */
   async testConnection(): Promise<boolean> {
     try {
       const response = await this.groq.chat.completions.create({
@@ -323,9 +305,7 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown, no code blo
     }
   }
 
-  /**
-   * Get current model name being used
-   */
+  
   getModelName(): string {
     return this.modelName;
   }
